@@ -52,7 +52,7 @@
 #define		SLON_WATCHDOG_RESTART		1
 #define		SLON_WATCHDOG_RETRY			2
 #define		SLON_WATCHDOG_SHUTDOWN		3
-static int	watchdog_status = SLON_WATCHDOG_NORMAL;
+static volatile int	watchdog_status = SLON_WATCHDOG_NORMAL;
 #endif
 int			sched_wakeuppipe[2];
 
@@ -968,6 +968,10 @@ SlonWatchdog(void)
 			case SLON_WATCHDOG_RESTART:
 				slon_log(SLON_CONFIG, "slon: restart of worker in 20 seconds\n");
 				sleep(20);
+				if (watchdog_status == SLON_WATCHDOG_SHUTDOWN) {
+					/* If we receive SIGKILL while sleeping this might change. */
+					goto shutdown;
+				}
 				slon_worker_pid = fork();
 				if (slon_worker_pid == 0)
 				{
@@ -1019,6 +1023,7 @@ SlonWatchdog(void)
 				break;
 
 			default:
+shutdown:
 				shutdown = 1;
 				break;
 		}						/* switch */
